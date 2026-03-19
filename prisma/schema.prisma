@@ -1,0 +1,399 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SCHOOL_ADMIN
+  DOS
+  DOD
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+model User {
+  id                String   @id @default(uuid())
+  firstName         String
+  lastName          String
+  email             String   @unique
+  password          String
+  phone             String?
+  accountPin        String?
+  country           String?
+  city              String?
+  address           String?
+  school            String?
+  role              UserRole @default(STUDENT)
+  profileImage      String?
+  disciplineMarks   Int      @default(40)
+  classId           String?
+  class             Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  courses           Course[] @relation("TeacherCourses")
+  studyingCourses   Course[] @relation("StudentCourses")
+  assignments       Assignment[] @relation("TeacherAssignments")
+  submissions       AssignmentSubmission[] @relation("StudentSubmissions")
+  timetables        Timetable[] @relation("TeacherTimetables")
+  disciplinaryReports StudentDiscipline[] @relation("StudentDiscipline")
+  incidentReporter    StudentDiscipline[] @relation("IncidentReporter")
+  children          User[]   @relation("ParentStudent")
+  parents           User[]   @relation("ParentStudent")
+  notifications     Notification[]
+  schemes           SchemeOfWork[] @relation("TeacherSchemes")
+  lessonAttendance  LessonAttendance[] @relation("StudentAttendance")
+
+  // Question Bank Relations
+  createdQuestions  Question[] @relation("TeacherQuestions")
+  questionAnswers   QuestionAnswer[]
+
+  // Live Assessment Relations
+  liveAssessments   LiveAssessment[] @relation("TeacherLiveAssessments")
+  liveResponses     LiveResponse[] @relation("StudentLiveResponses")
+}
+
+model AcademicYear {
+  id        String   @id @default(uuid())
+  title     String   @unique
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  terms     AcademicTerm[]
+  courses   Course[]
+  timetables Timetable[]
+  schemes   SchemeOfWork[]
+}
+
+model AcademicTerm {
+  id             String       @id @default(uuid())
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  title          String
+  startDate      DateTime
+  endDate        DateTime
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  courses        Course[]
+  timetables     Timetable[]
+  schemes        SchemeOfWork[]
+}
+
+model Class {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  users      User[]
+  courses    Course[]
+  timetables Timetable[]
+  schemes    SchemeOfWork[]
+  questions  Question[]
+  assignments Assignment[]
+  liveAssessments LiveAssessment[]
+}
+
+model Course {
+  id              String       @id @default(uuid())
+  title           String
+  classId         String
+  class           Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacherId       String
+  teacher         User         @relation("TeacherCourses", fields: [teacherId], references: [id], onDelete: Cascade)
+  students        User[]       @relation("StudentCourses")
+  notation        String?
+  academicYearId  String
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  termId          String
+  term            AcademicTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  // Bloom's Taxonomy
+  remembering     Boolean      @default(false)
+  understanding   Boolean      @default(false)
+  applying        Boolean      @default(false)
+  analyzing       Boolean      @default(false)
+  evaluating      Boolean      @default(false)
+  creating        Boolean      @default(false)
+
+  hoursPerWeek    Int?
+  syllabusUrl     String?
+  
+  topics          Topic[]
+  timetables      Timetable[]
+  schemes         SchemeOfWork[]
+  questions       Question[]
+  assignments     Assignment[]
+  liveAssessments LiveAssessment[]
+}
+
+model Topic {
+  id        String      @id @default(uuid())
+  title     String
+  courseId  String
+  course    Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+  subtopics Subtopic[]
+}
+
+model Subtopic {
+  id        String   @id @default(uuid())
+  title     String
+  topicId   String
+  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  units     Unit[]
+}
+
+model Unit {
+  id                 String   @id @default(uuid())
+  subtopicId         String
+  subtopic           Subtopic @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
+  title              String
+  periods            Int
+  keyUnitCompetency  String?
+  knowledge          String?
+  skills             String?
+  attitudes          String?
+  content            String?
+  learningActivities String?
+  linksToOther       String?
+  assessmentCriteria String?
+  materials          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  lessons            Lesson[]
+}
+
+model Timetable {
+  id             String       @id @default(uuid())
+  classId        String
+  class          Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  day            Int
+  startTime      String
+  endTime        String
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  termId         String
+  term            AcademicTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+  courseId       String
+  course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacherId      String
+  teacher        User         @relation("TeacherTimetables", fields: [teacherId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model SchemeOfWork {
+  id             String       @id @default(uuid())
+  classId        String
+  class          Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  termId         String
+  term           AcademicTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+  courseId       String
+  course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacherId      String?
+  teacher        User?        @relation("TeacherSchemes", fields: [teacherId], references: [id], onDelete: SetNull)
+  periodsPerWeek Int
+  reference      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  lessons        Lesson[]
+}
+
+model Lesson {
+  id             String       @id @default(uuid())
+  schemeId       String
+  scheme         SchemeOfWork @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  startDate      DateTime
+  endDate        DateTime
+  unitId         String
+  unit           Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  title          String
+  evaluation     String?
+  teachingMethod String?
+  resources      String?
+  observation    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  attendance     LessonAttendance[]
+}
+
+model LessonAttendance {
+  id        String   @id @default(uuid())
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User     @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
+  present   Boolean  @default(true)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lessonId, studentId])
+}
+
+model StudentDiscipline {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     User     @relation("StudentDiscipline", fields: [studentId], references: [id], onDelete: Cascade)
+  reporterId  String
+  reporter    User     @relation("IncidentReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  description String
+  date        DateTime @default(now())
+  remarks     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Assignment {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  deadline    DateTime?
+  classId     String
+  class       Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  courseId    String
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacherId   String
+  teacher     User         @relation("TeacherAssignments", fields: [teacherId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  questions   Question[]
+  submissions AssignmentSubmission[]
+}
+
+model AssignmentSubmission {
+  id           String     @id @default(uuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User       @relation("StudentSubmissions", fields: [studentId], references: [id], onDelete: Cascade)
+  score        Float      @default(0)
+  status       String     @default("COMPLETED") // COMPLETED, LATE, MISSED, CHEATING
+  cheatingAttempt Boolean @default(false)
+  createdAt    DateTime   @default(now())
+}
+
+model Question {
+  id            String      @id @default(uuid())
+  text          String
+  options       String[]
+  correctAnswer String
+  marks         Int         @default(1)
+  timer         Int?        // Seconds for this question
+  difficulty    String      @default("MEDIUM")
+  courseId      String
+  course        Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  classId       String?
+  class         Class?      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  assignmentId  String?
+  assignment    Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  teacherId     String
+  teacher       User        @relation("TeacherQuestions", fields: [teacherId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  answers       QuestionAnswer[]
+
+}
+
+model LiveAssessment {
+  id                  String       @id @default(uuid())
+  title               String
+  description         String?
+  status              LiveStatus   @default(DRAFT)
+  currentQuestionIndex Int         @default(-1)
+  deadline            DateTime?
+  classId             String
+  class               Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  courseId            String
+  course              Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacherId           String
+  teacher             User         @relation("TeacherLiveAssessments", fields: [teacherId], references: [id], onDelete: Cascade)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  questions           LiveQuestion[]
+  responses           LiveResponse[]
+}
+
+enum LiveStatus {
+  DRAFT
+  LIVE
+  COMPLETED
+}
+
+model LiveQuestion {
+  id             String         @id @default(uuid())
+  assessmentId   String
+  assessment     LiveAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  text           String
+  options        String[]
+  correctAnswer  String
+  marks          Int            @default(1)
+  timer          Int?           // Seconds for this question
+  order          Int
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  responses      LiveResponse[]
+}
+
+model LiveResponse {
+  id             String         @id @default(uuid())
+  assessmentId   String
+  assessment     LiveAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        User           @relation("StudentLiveResponses", fields: [studentId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       LiveQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer         String
+  isCorrect      Boolean
+  marksObtained  Int
+  cheatingAttempt Boolean       @default(false)
+  createdAt      DateTime       @default(now())
+}
+
+model QuestionAnswer {
+  id         String   @id @default(uuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answer     String
+  isCorrect  Boolean
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("INFO") // INFO, SUCCESS, WARNING, ALARM
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
